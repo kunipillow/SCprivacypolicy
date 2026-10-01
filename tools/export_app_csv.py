@@ -4,6 +4,8 @@
 アプリ（v1.0 以降）は、SCcomponents の privacypolicy.json / termsofuse.json（Id・Headline・Body）を表示する。
 その元の Excel に貼れるよう、同じ形の CSV（UTF-8 BOM 付き、改行は CRLF）を書き出す。
 見出し（h2）ごとに 1 行。最初の見出しより前の文は、見出しが空の行にする。
+最終更新日（p.updated）は、続く前文とつながって見えないよう、それだけで 1 行にする。
+小見出し（h3）は本文の中の 1 行にし、2 つめからは前に空行を入れる。
 
 使い方:
   python3 tools/export_app_csv.py <出力先のフォルダ>
@@ -25,11 +27,11 @@ class Sections(HTMLParser):
     def __init__(self):
         super().__init__()
         self.sections = [["", []]]   # [見出し, 本文の段落のリスト]
-        self.buf, self.tag, self.href = "", None, None
+        self.buf, self.tag, self.href, self.cls = "", None, None, None
 
     def handle_starttag(self, tag, attrs):
         if tag in ("h1", "h2", "h3", "p", "li"):
-            self.buf, self.tag = "", tag
+            self.buf, self.tag, self.cls = "", tag, dict(attrs).get("class")
         elif tag == "a":
             self.href = dict(attrs).get("href")
 
@@ -43,9 +45,14 @@ class Sections(HTMLParser):
         if tag == "h2":
             self.sections.append([text, []])
         elif tag == "h3":
+            # アプリでは小見出しも本文と同じ字になるので、前に空行を入れて区切りを見せる
+            if self.sections[-1][1]:
+                self.sections[-1][1].append("")
             self.sections[-1][1].append(text)
         elif tag == "p":
             self.sections[-1][1].append(text)
+            if self.cls == "updated":
+                self.sections.append(["", []])
         elif tag == "li":
             self.sections[-1][1].append("- " + text)
         self.tag = None
